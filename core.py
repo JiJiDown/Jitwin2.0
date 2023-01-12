@@ -6,6 +6,7 @@ import json
 
 import requests
 from readability import Document
+import wget#文件下载库
 
 # 初始化
 local_time = time.strftime("%y/%m/%d", time.localtime())
@@ -18,8 +19,8 @@ headers={
             "origin": "https://space.bilibili.com"
         }
 
-local_dir = os.getcwd()  # 默认下载地址
-os.makedirs(str(Path(local_dir+'/temp')), exist_ok=True)  # 创建临时文件夹
+local_dir = Path.cwd()  # 默认下载地址
+Path(local_dir+'/temp').mkdir(exist_ok=True)  # 创建临时文件夹
 
 def down_img(img,save_dir):
     sep = '\n'
@@ -28,6 +29,7 @@ def down_img(img,save_dir):
     os.system('aria2c --quiet true -j 10 --dir="'+save_dir+'/img" -i "'+save_dir+'/img/url.txt"')
     return
 
+#保存json
 def save(name,data):
     with open(name,'w',encoding='utf-8') as f:
         json.dump(data,f)
@@ -43,7 +45,7 @@ def load_json() -> dict:
     """
     读取配置参数
     """
-    if os.path.exists('set.json'):
+    if Path.exists('set.json'):
         with open('set.json','r') as f:
             return_data = json.loads(f.read())
     else:
@@ -82,6 +84,9 @@ def get(url: str) -> dict:
 def clean(data:str) -> dict:
     """
     获取网页正文内容
+    title = 标题
+    html = 网页正文
+    txt = 纯文字
     """
     doc = Document(data)
     html = str(doc.summary())
@@ -105,15 +110,31 @@ def clean(data:str) -> dict:
     return fine
 
 #bilibili api get
-def bili_get(url,cookies='null'):
-    cookies = {'SESSDATA':cookies}
-    data = brower.get(url,headers=headers,cookies=cookies).json()
-    return data
+def api_get(url,cookies='null') -> dict:
+    """
+    bilibili api请求函数
+    返回字典
+    """
+    if cookies != 'null':
+        cookies = {'SESSDATA':cookies}
+        data = brower.get(url,headers=headers,cookies=cookies).json()
+        return data
+    else:
+        data = brower.get(url,headers=headers).json()
+        return data
 
-#返回cv基础信息
+#返回专栏基础信息
 def bili_cv(cv:int) -> dict:
+    """
+    返回专栏基础信息
+    type = 类型 = cv
+    title = 文章标题
+    mid = 作者id
+    writer = 作者名
+    cover = 专栏封面
+    """
     url = 'http://api.bilibili.com/x/article/viewinfo?id='+str(cv)#调用接口
-    info = bili_get(url)
+    info = api_get(url)
     info = info['data']
     #建立专用存储格式
     box = {}
@@ -130,8 +151,15 @@ def bili_cv(cv:int) -> dict:
     return box
 
 #获取b站文集信息
-def bili_rl(rl):
-    data = bili_get('http://api.bilibili.com/x/article/list/web/articles?id='+str(rl))
+def bili_rl(rl) -> dict:
+    """
+    获取文集信息
+    name = 文集名
+    cover = 文集封面
+    list -> id = cv号
+            title = 文章标题
+    """
+    data = api_get('http://api.bilibili.com/x/article/list/web/articles?id='+str(rl))
     data =data['data']
     info = {}
     info['name'] = data['list']['name']
@@ -149,14 +177,14 @@ def bili_rl(rl):
     return info
 
 #批量按up主获取cv号列表
-def bili_up_cv(mid:int) -> dict:
+def bili_up_cv(mid:int) -> list:
     """
     批量按up主获取cv
+    list -> id = cv号
+            title = 文章标题
     """
     #获取up主专栏数量
-    input(mid)
-    list_num = get('https://api.bilibili.com/x/space/navnum?mid='+str(mid)).json()
-    input(list_num)
+    list_num = api_get('https://api.bilibili.com/x/space/navnum?mid='+str(mid))
     list_num = list_num['data']['article']#转换成int类型
     #运算提取页数
     list_page = 1
@@ -169,8 +197,8 @@ def bili_up_cv(mid:int) -> dict:
     #遍历页面
     list_all_json = []
     for l_num in range(1,list_page):
-        url = 'https://api.bilibili.com/x/space/article?mid='+str(mid)+'&pn='+str(l_num)+'&ps=30&sort=publish_time'
-        list_json = bili_get(url)
+        url = 'https://api.bilibili.com/x/space/article?mid='+str(mid)+'&pn='+str(l_num)+'&ps=30&sort=publish_time'#按上传时间排序
+        list_json = api_get(url)
         list_all_json += list_json['data']['articles']
     #处理json
     list_all_info = []
@@ -183,8 +211,19 @@ def bili_up_cv(mid:int) -> dict:
     return list_all_info
 
 #获取up主文集列表
-def bili_up_rl(mid:int) -> dict:
-    list_all_json = get('https://api.bilibili.com/x/article/up/lists?mid='+str(mid)+'&sort=0').json()
+def bili_up_rl(mid:int) -> list:
+    """
+    获取up主文集列表
+
+    rl = 文集id
+
+    name = 文集名
+
+    cover = 文集封面
+
+    cv_num = 专栏数量
+    """
+    list_all_json = api_get('https://api.bilibili.com/x/article/up/lists?mid='+str(mid)+'&sort=0')
     list_all_info = []
     for info in list_all_json['data']['lists']:
         #创建简略信息字典
@@ -197,9 +236,19 @@ def bili_up_rl(mid:int) -> dict:
     return list_all_info
 
 #获取本人收藏夹列表
-def get_myfav_list(cookies:str) -> dict:
+def get_myfav_list(cookies:str) -> list:
+    """
+    获取本人收藏夹列表
+
+    id = cv编号
+    title = 专栏标题
+    writer = 作者信息
+            -> mid = 作者mid
+               name = 作者id
+               face = 作者头像
+    """
     #获取收藏夹专栏数量
-    list_num = bili_get('https://api.bilibili.com/x/article/favorites/list/all?pn=1&ps=1&jsonp=jsonp',cookies)
+    list_num = api_get('https://api.bilibili.com/x/article/favorites/list/all?pn=1&ps=1&jsonp=jsonp',cookies)
     list_num = list_num['data']['page']['total']#转换成int类型
     #运算提取页数
     list_page = 1
@@ -214,7 +263,7 @@ def get_myfav_list(cookies:str) -> dict:
     for l_num in range(1,list_page):
         print(l_num)
         url = 'https://api.bilibili.com/x/article/favorites/list/all?pn='+str(l_num)+'&ps=30&jsonp=jsonp'
-        list_json = bili_get(url,cookies)
+        list_json = api_get(url,cookies)
         list_all_json += list_json['data']['favorites']
     #处理json
     list_all_info = []
@@ -226,17 +275,18 @@ def get_myfav_list(cookies:str) -> dict:
         clean_info = {}
         clean_info['id'] = info['id']
         clean_info['title'] = info['title']
-        clean_info['words'] = info['words']
-        clean_info['stats'] = info['stats']
+        clean_info['writer'] = info['author'][0]
         list_all_info.append(clean_info)
     return list_all_info
 
-def save_html(data):
+def save(data):
+    """
+    保存数据
+    """
     print('数据分析完毕')
     #创建根文件夹
     save_dir = local_dir+'/'+clean_name(data['title'])
-    os.makedirs(save_dir,exist_ok=True)
-    
+    Path(save_dir).mkdir(parents=True,exist_ok=True)
     #保存元数据为json以便调用
     print('保存元数据')
     save(save_dir+'/entry.json',data)
