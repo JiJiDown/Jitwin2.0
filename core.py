@@ -8,6 +8,7 @@ import demjson
 import requests
 from readability import Document
 import wget#文件下载库
+now_path = os.path.dirname(os.path.realpath(__file__))+"/"
 
 # 初始化
 local_time = time.strftime("%y/%m/%d", time.localtime())
@@ -20,8 +21,10 @@ headers={
             "Origin": "https://space.bilibili.com",
         }
 
-local_dir = str(Path.cwd())+r'\\temp'  # 默认下载地址
-downloaded_dir = str(Path.cwd())+r'\\downloaded'
+#local_dir = str(Path.cwd())+r'\\temp'  # 默认下载地址
+#downloaded_dir = str(Path.cwd())+r'\\downloaded'
+local_dir = str(now_path)+r'\\temp'  # 默认下载地址
+downloaded_dir = str(now_path)+r'\\downloaded'
 Path(local_dir).mkdir(exist_ok=True)  # 创建临时文件夹
 
 #使用aria2c下载html包含的图片
@@ -29,7 +32,7 @@ def down_img(img,save_dir):
     sep = '\n'
     with open(save_dir+'/img/url.txt','w') as f:
         f.write(sep.join(img))
-    os.system('aria2c --quiet true -j 10 --dir="'+save_dir+'/img" -i "'+save_dir+'/img/url.txt"')
+    os.system(now_path+'/aria2c --quiet true -j 10 --dir="'+save_dir+'/img" -i "'+save_dir+'/img/url.txt"')
     return
 
 #保存json
@@ -48,14 +51,14 @@ def load_json() -> dict:
     """
     读取配置参数
     """
-    if Path('set.json').exists():
-        with open('set.json','r') as f:
+    if Path(now_path+'/set.json').exists():
+        with open(now_path+'/set.json','r') as f:
             return_data = json.loads(f.read())
     else:
         data = {}
         data['need_down_list'] = []
         data['fin_down_list'] = []
-        with open('set.json','w') as f:
+        with open(now_path+'/set.json','w') as f:
             f.write(json.dumps(data))
         return_data = data
     return return_data
@@ -65,7 +68,7 @@ def save_json(data:dict) -> None:
     """
     读取配置参数
     """
-    with open('set.json','w') as f:
+    with open(now_path+'/set.json','w') as f:
         f.write(json.dumps(data))
     return
 
@@ -341,3 +344,4 @@ def save(data):
     Path(downloaded_dir).mkdir(parents=True,exist_ok=True)
     os.system('cd '+local_dir+'&move "'+clean_name(data['title'])+'" '+downloaded_dir+r'/')
     print('本地化完成')
+    return(downloaded_dir)
