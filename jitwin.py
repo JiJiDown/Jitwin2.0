@@ -21,6 +21,7 @@ system_bit = platform.machine()#操作系统位数
 #启动时间
 local_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
 
+
 #解析输入的链接类型
 def get_url_type(url:str) -> list:
     if '/read/' in url:
@@ -70,7 +71,8 @@ def start_url():
         return
     #解析url
     out_url = get_url_type(url)
-    info = get_info(out_url[0],out_url[1])
+    info = get_info(out_url[0],str(out_url[1]))
+    core.save(info)
 
 #主函数
 def main():
@@ -95,3 +97,24 @@ def main():
             scope_down_fin = out.put_scope('down_fin')
             out.put_tabs([{'title':'下载中','content':scope_down_work},{'title':'下载完成','content':scope_down_fin}])#创建横向标签栏
             
+if __name__ == "__main__":
+    with out.use_scope('main'):#创建并进入main域
+            out.scroll_to('main','top')
+        #创建横向标签栏
+            scope_url = out.put_scope('url')#创建url域
+            scope_set = out.put_scope('set')#创建set域
+            scope_down = out.put_scope('down')#创建down域
+            out.put_tabs([{'title':'链接解析','content':scope_url},{'title':'下载列表','content':scope_down},{'title':'设置','content':scope_set}])#创建
+            
+
+            #创建url输入框
+            with out.use_scope('url'):#进入域
+                pin.put_input('url_input',label='请输入链接',type='text')#限制类型为url,使用check_input_url检查内容
+                out.put_button(label='解析链接',onclick=start_url).style('width: 100%')#创建按键
+                out.put_scope('video_info')
+            
+            #创建下载列表
+            with out.use_scope('down'):
+                scope_down_work = out.put_scope('down_work')
+                scope_down_fin = out.put_scope('down_fin')
+                out.put_tabs([{'title':'下载中','content':scope_down_work},{'title':'下载完成','content':scope_down_fin}])#创建横向标签栏

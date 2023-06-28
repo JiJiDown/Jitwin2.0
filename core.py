@@ -3,6 +3,7 @@ import time
 import re
 from pathlib import Path
 import json
+import demjson
 
 import requests
 from readability import Document
@@ -12,16 +13,18 @@ import wget#文件下载库
 local_time = time.strftime("%y/%m/%d", time.localtime())
 brower = requests.Session()
 headers={
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
-            "accept": "application/json, text/plain, */*",
-            "accept-encoding": "gzip, deflate, br",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "origin": "https://space.bilibili.com"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Origin": "https://space.bilibili.com",
         }
 
-local_dir = Path.cwd()  # 默认下载地址
-Path(local_dir+'/temp').mkdir(exist_ok=True)  # 创建临时文件夹
+local_dir = str(Path.cwd())+r'\\temp'  # 默认下载地址
+downloaded_dir = str(Path.cwd())+r'\\downloaded'
+Path(local_dir).mkdir(exist_ok=True)  # 创建临时文件夹
 
+#使用aria2c下载html包含的图片
 def down_img(img,save_dir):
     sep = '\n'
     with open(save_dir+'/img/url.txt','w') as f:
@@ -30,7 +33,7 @@ def down_img(img,save_dir):
     return
 
 #保存json
-def save(name,data):
+def save_1(name,data):
     with open(name,'w',encoding='utf-8') as f:
         json.dump(data,f)
 
@@ -45,7 +48,7 @@ def load_json() -> dict:
     """
     读取配置参数
     """
-    if Path.exists('set.json'):
+    if Path('set.json').exists():
         with open('set.json','r') as f:
             return_data = json.loads(f.read())
     else:
@@ -120,8 +123,21 @@ def api_get(url,cookies='null') -> dict:
         data = brower.get(url,headers=headers,cookies=cookies).json()
         return data
     else:
-        data = brower.get(url,headers=headers).json()
+        #data = brower.get(url,headers=headers).json()
+        brower_data=brower.get(url,headers=headers).text
+        #print(brower_data)
+        data = demjson.decode(brower_data)
+        print(data)
         return data
+
+#保存专栏文章的html版本
+def save_usual_html(url,data):
+    html_file = open(url,mode='w+', encoding="utf-8")
+    html_file.write(data)
+    html_file.close()
+    return True
+    
+
 
 #返回专栏基础信息
 def bili_cv(cv:int) -> dict:
@@ -133,13 +149,16 @@ def bili_cv(cv:int) -> dict:
     writer = 作者名
     cover = 专栏封面
     """
-    url = 'http://api.bilibili.com/x/article/viewinfo?id='+str(cv)#调用接口
+    url = 'http://api.bilibili.com/x/article/viewinfo?id='+str(cv)[3:len(str(cv))]#调用接口
+    #print(url)
     info = api_get(url)
+    #print(info)
     info = info['data']
     #建立专用存储格式
     box = {}
     #写入正文
-    box['html'] = ''
+    cv_clean=clean(requests.get('https://www.bilibili.com/read'+str(cv),headers=headers).text)
+    box['html'] = cv_clean['html']
     box['txt'] = ''
     #创建标识符
     box['type'] = 'cv'
@@ -148,6 +167,7 @@ def bili_cv(cv:int) -> dict:
     box['mid'] = info['mid']
     box['cover'] = info['origin_image_urls'][0]
     box['writer'] = info['author_name']
+    #print(box)
     return box
 
 #获取b站文集信息
@@ -286,10 +306,11 @@ def save(data):
     print('数据分析完毕')
     #创建根文件夹
     save_dir = local_dir+'/'+clean_name(data['title'])
+    print(save_dir)
     Path(save_dir).mkdir(parents=True,exist_ok=True)
     #保存元数据为json以便调用
     print('保存元数据')
-    save(save_dir+'/entry.json',data)
+    save_1(save_dir+'/entry.json',data)
     
     print('启动媒体数据本地化')
     #提取图片链接
@@ -299,7 +320,10 @@ def save(data):
     old_img_list.append(data['cover'])
     cover_name = data['cover'].split('/').pop()
     down_img(old_img_list,save_dir)
-    os.rename(save_dir+'/img/'+cover_name,save_dir+'/img/cover.jpg')
+    try:
+        os.rename(save_dir+'/img/'+cover_name,save_dir+'/img/cover.jpg')
+    except FileExistsError:
+        pass
     old_img_list.remove(data['cover'])
     print('媒体文件下载完毕')
     # 截取图片文件名
@@ -310,8 +334,10 @@ def save(data):
     #下载cover
     #html本地化
     for num in range(len(new_img_list)):
-        data['html'] = data['html'].replace(old_img_list[num],'/img/'+new_img_list[num])
+        data['html'] = data['html'].replace(old_img_list[num],'./img/'+new_img_list[num])
     #创建index.html
-    #save_usual(save_dir+'/index.html',data['html'])
+    save_usual_html(save_dir+'/index.html',data['html'])
     print('索引链接创建完成')
+    Path(downloaded_dir).mkdir(parents=True,exist_ok=True)
+    os.system('cd '+local_dir+'&move "'+clean_name(data['title'])+'" '+downloaded_dir+r'/')
     print('本地化完成')
