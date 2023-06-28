@@ -12,6 +12,7 @@ ioin = io.input
 pin = io.pin
 
 import core #导入python核心接口
+#获取当前代码文件所在的目录
 now_path = os.path.dirname(os.path.realpath(__file__))+"/"
 
 #声明下载列表
@@ -80,21 +81,23 @@ def start_url():
     temp_title=get_title(str(out_url[1]))
     download_line+=1
     downloading_list.append(temp_title)
-    update()
+    downlist_update()
     info = get_info(out_url[0],str(out_url[1]))
     save_file=core.save(info)
     del downloading_list[0]
     downloaded_list.append(temp_title)
-    update()
+    downlist_update()
     out.toast("解析下载已完成，请检查"+save_file+"是否存在专栏目录",duration=3,color='success')
 
+#获取文本框专栏的标题
 def get_title(id):
     temp_url='http://api.bilibili.com/x/article/viewinfo?id='+str(id)[3:len(str(id))]
     temp_info=core.api_get(temp_url)
     temp_title=temp_info["data"]["title"]
     return temp_title
 
-def update():
+#下载列表更新函数
+def downlist_update():
     with out.use_scope('main'):
         with out.use_scope('down'):
             scope_down_work = out.put_table([downloading_list])
@@ -102,6 +105,7 @@ def update():
             out.clear('down')
             out.put_tabs([{'title':'下载中','content':scope_down_work},{'title':'下载完成','content':scope_down_fin}])#创建横向标签栏
 
+#主入口，因为直接使用main函数会直接报找不到函数就直接修改成入口了
 if __name__ == "__main__":
     with out.use_scope('main'):#创建并进入main域
         out.scroll_to('main','top')

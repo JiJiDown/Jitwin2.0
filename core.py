@@ -7,7 +7,8 @@ import demjson
 
 import requests
 from readability import Document
-import wget#文件下载库
+import wget #文件下载库
+#获取当前代码文件所在的目录
 now_path = os.path.dirname(os.path.realpath(__file__))+"/"
 
 # 初始化
@@ -23,8 +24,8 @@ headers={
 
 #local_dir = str(Path.cwd())+r'\\temp'  # 默认下载地址
 #downloaded_dir = str(Path.cwd())+r'\\downloaded'
-local_dir = str(now_path)+r'\\temp'  # 默认下载地址
-downloaded_dir = str(now_path)+r'\\downloaded'
+local_dir = str(now_path)+r'\\temp'  # 默认缓存地址
+downloaded_dir = str(now_path)+r'\\downloaded' # 默认下载地址
 Path(local_dir).mkdir(exist_ok=True)  # 创建临时文件夹
 
 #使用aria2c下载html包含的图片
@@ -139,8 +140,6 @@ def save_usual_html(url,data):
     html_file.write(data)
     html_file.close()
     return True
-    
-
 
 #返回专栏基础信息
 def bili_cv(cv:int) -> dict:
